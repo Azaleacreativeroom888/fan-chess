@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ギャラリー | 64 Squares Journal</title>
+<meta name="robots" content="noai, noimageai">
+<style>
+  :root{
+    --board-dark:#3b5d50;
+    --board-dark-deep:#2c4a3e;
+    --board-light:#e8dfc8;
+    --walnut:#6b4423;
+    --walnut-deep:#2a1f16;
+    --brass:#b8863e;
+    --brass-light:#d9b06c;
+    --paper:#f2ecdd;
+    --paper-shadow:#e2d9c0;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+
+  body{
+    background:var(--paper);
+    color:var(--walnut-deep);
+    font-family:'Source Serif 4','Noto Serif JP',serif;
+    line-height:1.8;
+    overflow-x:hidden;
+  }
+
+  h1,h2,h3,.display{
+    font-family:'Cormorant Garamond','Noto Serif JP',serif;
+    font-weight:700;
+    letter-spacing:.02em;
+  }
+
+  .notation{
+    font-family:'JetBrains Mono','Courier New',monospace;
+    letter-spacing:.05em;
+  }
+
+  a{color:inherit;text-decoration:none;}
+
+  /* ===== HEADER / NAV (shared) ===== */
+  header{
+    position:sticky;top:0;z-index:100;
+    background:var(--walnut-deep);
+    border-bottom:3px solid var(--brass);
+  }
+  .nav-wrap{
+    max-width:1100px;margin:0 auto;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 24px;
+  }
+  .logo{color:var(--paper);font-size:1.5rem;display:flex;align-items:baseline;gap:8px;}
+  .logo .notation{color:var(--brass-light);font-size:.95rem;}
+  nav ul{list-style:none;display:flex;gap:2px;}
+  nav li a{
+    display:flex;flex-direction:column;align-items:center;
+    padding:8px 16px;color:var(--paper);font-size:.95rem;
+    position:relative;transition:background .25s ease;
+  }
+  nav li a .file-rank{
+    font-family:'JetBrains Mono',monospace;font-size:.65rem;
+    color:var(--brass-light);opacity:.7;margin-bottom:2px;
+  }
+  nav li a:hover{background:var(--board-dark-deep);}
+  nav li a.current{background:var(--brass);color:var(--walnut-deep);}
+  nav li a.current .file-rank{color:var(--walnut-deep);opacity:.8;}
+  .nav-toggle{display:none;}
+
+  @media (max-width:720px){
+    nav ul{
+      position:fixed;top:64px;left:0;right:0;
+      flex-direction:column;background:var(--walnut-deep);
+      transform:translateY(-120%);transition:transform .3s ease;
+      border-bottom:3px solid var(--brass);
+    }
+    nav ul.open{transform:translateY(0);}
+    nav li a{align-items:flex-start;padding:14px 24px;flex-direction:row;gap:10px;}
+    .nav-toggle{display:block;background:none;border:none;color:var(--paper);font-size:1.6rem;cursor:pointer;}
+  }
+
+  /* ===== PAGE HERO ===== */
+  .page-hero{
+    padding:64px 24px 48px;
+    text-align:center;
+    background:
+      linear-gradient(160deg, rgba(44,74,62,.94), rgba(42,31,22,.92)),
+      repeating-linear-gradient(45deg, var(--board-dark) 0 40px, var(--board-dark-deep) 40px 80px);
+    color:var(--paper);
+  }
+  .page-hero .eyebrow{
+    font-family:'JetBrains Mono',monospace;letter-spacing:.3em;text-transform:uppercase;
+    font-size:.75rem;color:var(--brass-light);margin-bottom:16px;
+  }
+  .page-hero h1{font-size:clamp(2rem,5vw,3rem);}
+  .page-hero p{color:var(--paper-shadow);margin-top:14px;font-size:1rem;}
+
+  /* ===== FILTER ===== */
+  .filter-bar{
+    max-width:1100px;
+    margin:0 auto;
+    padding:40px 24px 0;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .filter-btn{
+    font-family:'JetBrains Mono',monospace;
+    font-size:.8rem;
+    letter-spacing:.05em;
+    padding:8px 18px;
+    border:1px solid var(--walnut);
+    color:var(--walnut);
+    background:transparent;
+    cursor:pointer;
+    transition:all .2s ease;
+  }
+  .filter-btn:hover{background:var(--paper-shadow);}
+  .filter-btn.active{background:var(--walnut);color:var(--paper);}
+
+  /* ===== GALLERY GRID ===== */
+  .gallery-section{padding:48px 24px 110px;}
+  .gal-wrap{max-width:1100px;margin:0 auto;}
+
+  .gal-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+    gap:22px;
+  }
+
+  .gal-card{
+    cursor:pointer;
+    border:1px solid rgba(107,68,35,.25);
+    background:var(--paper);
+    transition:transform .25s ease, box-shadow .25s ease;
+  }
+  .gal-card:hover{
+    transform:translateY(-4px);
+    box-shadow:0 16px 30px -18px rgba(42,31,22,.4);
+  }
+
+  .gal-thumb{
+    aspect-ratio:4/3;
+    position:relative;
+    display:flex;
+    align-items:flex-end;
+    padding:14px;
+    overflow:hidden;
+  }
+  .gal-thumb::before{
+    content:"";
+    position:absolute;inset:0;
+    background:linear-gradient(160deg, transparent 45%, rgba(42,31,22,.8));
+  }
+  .gal-thumb span{
+    position:relative;
+    color:var(--paper);
+    font-family:'JetBrains Mono',monospace;
+    font-size:.78rem;
+    letter-spacing:.05em;
+  }
+
+  .gal-card[data-cat="position"] .gal-thumb{background:repeating-linear-gradient(45deg, #3b5d50 0 20px, #2c4a3e 20px 40px);}
+  .gal-card[data-cat="notation"] .gal-thumb{background:linear-gradient(135deg,#6b4423,#4a2f17);}
+  .gal-card[data-cat="endgame"] .gal-thumb{background:repeating-linear-gradient(45deg, #b8863e 0 20px, #8a6329 20px 40px);}
+  .gal-card[data-cat="opening"] .gal-thumb{background:linear-gradient(135deg,#2a1f16,#3b5d50);}
+
+  .gal-caption{
+    padding:14px 16px 18px;
+  }
+  .gal-caption h3{
+    font-size:1.05rem;
+    color:var(--walnut-deep);
+    margin-bottom:6px;
+  }
+  .gal-caption p{
+    font-size:.82rem;
+    color:#6b6255;
+    font-family:'JetBrains Mono',monospace;
+  }
+
+  .gal-card{ }
+
+  /* hide/show via filter */
+  .gal-card.hidden{display:none;}
+
+  /* ===== LIGHTBOX ===== */
+  .lightbox{
+    position:fixed;inset:0;
+    background:rgba(20,14,9,.92);
+    display:none;
+    align-items:center;justify-content:center;
+    z-index:1000;
+    padding:24px;
+  }
+  .lightbox.open{display:flex;}
+  .lightbox-inner{
+    max-width:640px;
+    width:100%;
+    background:var(--paper);
+    border:2px solid var(--brass);
+  }
+  .lightbox-thumb{
+    aspect-ratio:4/3;
+  }
+  .lightbox-body{padding:26px 28px 30px;}
+  .lightbox-body h3{font-size:1.4rem;color:var(--walnut);margin-bottom:10px;}
+  .lightbox-body p{color:#4a4038;font-size:.95rem;}
+  .lightbox-close{
+    position:absolute;
+    top:20px;right:28px;
+    color:var(--paper);
+    font-size:1.8rem;
+    background:none;border:none;cursor:pointer;
+    line-height:1;
+  }
+
+  /* ===== FOOTER (shared) ===== */
+  footer{background:var(--walnut-deep);color:var(--paper-shadow);padding:70px 24px 30px;}
+  .footer-inner{max-width:1100px;margin:0 auto;}
+  .footer-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:48px;margin-bottom:48px;}
+  .footer-col h4{
+    font-family:'JetBrains Mono',monospace;color:var(--brass-light);font-size:.8rem;
+    letter-spacing:.15em;text-transform:uppercase;margin-bottom:18px;
+  }
+  .footer-col p{font-size:.9rem;margin-bottom:14px;color:var(--paper-shadow);}
+  .footer-col ul{list-style:none;}
+  .footer-col li{margin-bottom:10px;}
+  .footer-col a{font-size:.9rem;color:var(--paper-shadow);transition:color .2s;}
+  .footer-col a:hover{color:var(--brass-light);}
+
+  .contact-form{display:flex;flex-direction:column;gap:10px;}
+  .contact-form input,.contact-form textarea{
+    background:var(--board-dark-deep);border:1px solid var(--walnut);color:var(--paper);
+    padding:10px 12px;font-family:inherit;font-size:.85rem;
+  }
+  .contact-form textarea{resize:vertical;min-height:70px;}
+  .contact-form button{
+    background:var(--brass);color:var(--walnut-deep);border:none;padding:10px;
+    font-family:'JetBrains Mono',monospace;font-size:.8rem;letter-spacing:.08em;
+    cursor:pointer;transition:background .2s;
+  }
+  .contact-form button:hover{background:var(--brass-light);}
+
+  .footer-bottom{
+    border-top:1px solid rgba(232,223,200,.15);padding-top:24px;
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;
+    font-size:.78rem;color:rgba(242,236,221,.5);
+  }
+  .ai-notice{max-width:640px;line-height:1.7;}
+
+  @media (max-width:820px){.footer-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-wrap">
+    <a href="index.html" class="logo">
+      <span class="display">64 Squares</span>
+      <span class="notation">journal</span>
+    </a>
+    <button class="nav-toggle" aria-label="メニュー">☰</button>
+    <nav>
+      <ul id="navList">
+        <li><a href="index.html"><span class="file-rank">e4</span>ホーム</a></li>
+        <li><a href="blog.html"><span class="file-rank">d4</span>対局日誌</a></li>
+        <li><a href="gallery.html" class="current"><span class="file-rank">c4</span>ギャラリー</a></li>
+        <li><a href="about.html"><span class="file-rank">Nf3</span>About</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<section class="page-hero">
+  <p class="eyebrow">gallery</p>
+  <h1>ギャラリー</h1>
+  <p>局面図・棋譜メモ・終盤研究など、勉強の過程で残した記録をまとめています。</p>
+</section>
+
+<div class="filter-bar">
+  <button class="filter-btn active" data-filter="all">すべて</button>
+  <button class="filter-btn" data-filter="position">局面図</button>
+  <button class="filter-btn" data-filter="opening">戦型ノート</button>
+  <button class="filter-btn" data-filter="endgame">終盤研究</button>
+  <button class="filter-btn" data-filter="notation">棋譜メモ</button>
+</div>
+
+<section class="gallery-section">
+  <div class="gal-wrap">
+    <div class="gal-grid" id="galGrid">
+
+      <div class="gal-card" data-cat="position" data-title="キング周りの安全確認" data-desc="キャスリング後、g7のポーンが弱点になりやすい局面を並べ直したメモ。">
+        <div class="gal-thumb"><span>局面図 — Kingside</span></div>
+        <div class="gal-caption"><h3>キング周りの安全確認</h3><p>POSITION · 07.18</p></div>
+      </div>
+
+      <div class="gal-card" data-cat="opening" data-title="イタリアンゲームの分岐" data-desc="3.Bc4後の代表的な応手を比較。Giuoco Pianoとフリット式の違いを整理。">
+        <div class="gal-thumb"><span>戦型ノート — Italian</span></div>
+        <div class="gal-caption"><h3>イタリアンゲームの分岐</h3><p>OPENING · 07.10</p></div>
+      </div>
+
+      <div class="gal-card" data-cat="endgame" data-title="ルーク対ポーン終盤" data-desc="ルーク対ポーンの基本形。防御側の王の位置がすべてを決める、という気づき。">
+        <div class="gal-thumb"><span>終盤研究 — R vs P</span></div>
+        <div class="gal-caption"><h3>ルーク対ポーン終盤</h3><p>ENDGAME · 07.02</p></div>
+      </div>
+
+      <div class="gal-card" data-cat="notation" data-title="感想戦メモ" data-desc="対局後に自分で並べ直したときのメモ書き。分岐点にコメントを添えて整理。">
+        <div class="gal-thumb"><span>棋譜メモ — Review</span></div>
+        <div class="gal-caption"><h3>感想戦メモ</h3><p>NOTATION · 06.25</p></div>
+      </div>
+
+      <div class="gal-card" data-cat="position" data-title="中盤のポーン構造" data-desc="孤立ポーンを抱えた局面での駒の配置。弱点をどう守るか考えた記録。">
+        <div class="gal-thumb"><span>局面図 — Structure</span></div>
+        <div class="gal-caption"><h3>中盤のポーン構造</h3><p>POSITION · 06.19</p></div>
+      </div>
+
+      <div class="gal-card" data-cat="endgame" data-title="キングとポーンの終盤" data-desc="対抗形の基本、オポジションの取り方を並べ直して確認したノート。">
+        <div class="gal-thumb"><span>終盤研究 — K&amp;P</span></div>
+        <div class="gal-caption"><h3>キングとポーンの終盤</h3><p>ENDGAME · 06.12</p></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="lightbox" id="lightbox">
+  <div class="lightbox-inner">
+    <div class="lightbox-thumb" id="lightboxThumb"></div>
+    <div class="lightbox-body">
+      <h3 id="lightboxTitle"></h3>
+      <p id="lightboxDesc"></p>
+    </div>
+  </div>
+  <button class="lightbox-close" id="lightboxClose">&times;</button>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <h4>64 Squares Journal</h4>
+        <p>チェスの勉強記録と気づきを綴る個人サイトです。焦らず一手ずつ、盤上の理解を深めていきます。</p>
+        <p style="margin-top:20px;">Part of <strong>Azalea Creative Room</strong></p>
+      </div>
+      <div class="footer-col">
+        <h4>Links</h4>
+        <ul>
+          <li><a href="https://azaleacreativeroom888.github.io/" target="_blank" rel="noopener">Azalea Creative Room</a></li>
+          <li><a href="https://kakuyomu.jp/" target="_blank" rel="noopener">Kakuyomu（小説）</a></li>
+          <li><a href="https://www.pixiv.net/" target="_blank" rel="noopener">Pixiv（イラスト）</a></li>
+          <li><a href="https://www.youtube.com/" target="_blank" rel="noopener">YouTube - リリポピ</a></li>
+          <li><a href="https://bsky.app/" target="_blank" rel="noopener">Bluesky</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <form class="contact-form" action="https://formspree.io/f/maqvpvoz" method="POST">
+          <input type="text" name="name" placeholder="お名前" required>
+          <input type="email" name="email" placeholder="メールアドレス" required>
+          <textarea name="message" placeholder="メッセージ" required></textarea>
+          <button type="submit">送信する</button>
+        </form>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; 2026 64 Squares Journal — Azalea Creative Room</span>
+      <span class="ai-notice">当サイトの文章・画像等の無断でのAI学習・機械学習データセットへの利用を禁止します。 / No AI training on this site's content is permitted.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const toggle = document.querySelector('.nav-toggle');
+  const navList = document.getElementById('navList');
+  toggle.addEventListener('click', () => navList.classList.toggle('open'));
+
+  // filter
+  const filterBtns = document.querySelectorAll('.filter-btn');
+  const cards = document.querySelectorAll('.gal-card');
+  filterBtns.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      filterBtns.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const f = btn.dataset.filter;
+      cards.forEach(card=>{
+        card.classList.toggle('hidden', f!=='all' && card.dataset.cat!==f);
+      });
+    });
+  });
+
+  // lightbox
+  const lightbox = document.getElementById('lightbox');
+  const lightboxThumb = document.getElementById('lightboxThumb');
+  const lightboxTitle = document.getElementById('lightboxTitle');
+  const lightboxDesc = document.getElementById('lightboxDesc');
+  const lightboxClose = document.getElementById('lightboxClose');
+
+  cards.forEach(card=>{
+    card.addEventListener('click', ()=>{
+      const thumbClass = card.querySelector('.gal-thumb').style.background;
+      lightboxThumb.style.background = getComputedStyle(card.querySelector('.gal-thumb')).background;
+      lightboxTitle.textContent = card.dataset.title;
+      lightboxDesc.textContent = card.dataset.desc;
+      lightbox.classList.add('open');
+    });
+  });
+  lightboxClose.addEventListener('click', ()=>lightbox.classList.remove('open'));
+  lightbox.addEventListener('click', (e)=>{ if(e.target===lightbox) lightbox.classList.remove('open'); });
+</script>
+
+</body>
+</html>
