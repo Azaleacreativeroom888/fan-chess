@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>棋譜ビューア | 64 Squares Journal</title>
+<meta name="description" content="チェス盤の上で一手ずつ進めながら棋譜を見られるページ。">
+<meta name="robots" content="noai, noimageai">
+<style>
+  :root{
+    --board-dark:#3b5d50;
+    --board-dark-deep:#2c4a3e;
+    --board-light:#e8dfc8;
+    --walnut:#6b4423;
+    --walnut-deep:#2a1f16;
+    --brass:#b8863e;
+    --brass-light:#d9b06c;
+    --paper:#f2ecdd;
+    --paper-shadow:#e2d9c0;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--paper);
+    color:var(--walnut-deep);
+    font-family:'Source Serif 4','Noto Serif JP',serif;
+    line-height:1.8;
+    overflow-x:hidden;
+  }
+  h1,h2,h3,.display{font-family:'Cormorant Garamond','Noto Serif JP',serif;font-weight:700;letter-spacing:.02em;}
+  .notation{font-family:'JetBrains Mono','Courier New',monospace;letter-spacing:.05em;}
+  a{color:inherit;text-decoration:none;}
+  a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--brass);outline-offset:3px;}
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.01ms !important;transition-duration:.01ms !important;scroll-behavior:auto !important;}
+  }
+
+  /* ===== HEADER / NAV (shared) ===== */
+  header{position:sticky;top:0;z-index:100;background:var(--walnut-deep);border-bottom:3px solid var(--brass);}
+  .nav-wrap{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 24px;}
+  .logo{color:var(--paper);font-size:1.5rem;display:flex;align-items:baseline;gap:8px;}
+  .logo .notation{color:var(--brass-light);font-size:.95rem;}
+  nav ul{list-style:none;display:flex;gap:2px;}
+  nav li a{display:flex;flex-direction:column;align-items:center;padding:8px 16px;color:var(--paper);font-size:.95rem;transition:background .25s ease;}
+  nav li a .file-rank{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--brass-light);opacity:.7;margin-bottom:2px;}
+  nav li a:hover{background:var(--board-dark-deep);}
+  nav li a.current{background:var(--brass);color:var(--walnut-deep);}
+  nav li a.current .file-rank{color:var(--walnut-deep);opacity:.8;}
+  .nav-toggle{display:none;}
+  @media (max-width:720px){
+    nav ul{position:fixed;top:64px;left:0;right:0;flex-direction:column;background:var(--walnut-deep);transform:translateY(-120%);transition:transform .3s ease;border-bottom:3px solid var(--brass);}
+    nav ul.open{transform:translateY(0);}
+    nav li a{align-items:flex-start;padding:14px 24px;flex-direction:row;gap:10px;}
+    .nav-toggle{display:block;background:none;border:none;color:var(--paper);font-size:1.6rem;cursor:pointer;}
+  }
+
+  /* ===== PAGE HERO ===== */
+  .page-hero{
+    padding:56px 24px 40px;text-align:center;color:var(--paper);
+    background:
+      linear-gradient(160deg, rgba(44,74,62,.94), rgba(42,31,22,.92)),
+      repeating-linear-gradient(45deg, var(--board-dark) 0 40px, var(--board-dark-deep) 40px 80px);
+  }
+  .crumb{font-size:.82rem;color:var(--paper-shadow);margin-bottom:14px;}
+  .crumb a{color:var(--brass-light);font-weight:600;}
+  .crumb a:hover{text-decoration:underline;}
+  .page-hero .eyebrow{font-family:'JetBrains Mono',monospace;letter-spacing:.3em;text-transform:uppercase;font-size:.75rem;color:var(--brass-light);margin-bottom:14px;}
+  .page-hero h1{font-size:clamp(1.8rem,4.5vw,2.8rem);margin-bottom:14px;}
+  .game-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 22px;font-size:.88rem;color:var(--paper-shadow);}
+  .game-meta b{color:var(--paper);font-weight:600;}
+
+  /* ===== VIEWER ===== */
+  .viewer{max-width:1100px;margin:0 auto;padding:48px 24px 60px;}
+  .viewer-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr);gap:30px;align-items:start;}
+  @media (max-width:860px){.viewer-grid{grid-template-columns:1fr;}}
+
+  .board-col{display:flex;flex-direction:column;gap:10px;}
+  .board-frame{border:8px solid var(--walnut);box-shadow:0 18px 40px -18px rgba(42,31,22,.55);line-height:0;}
+  .board-frame svg{width:100%;height:auto;display:block;}
+
+  .cap-bar{display:flex;align-items:center;gap:14px;min-height:50px;padding:6px 14px;background:var(--paper-shadow);border:1px solid rgba(107,68,35,.3);}
+  .cap-label{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--walnut);white-space:nowrap;}
+  .cap-pieces{display:flex;flex-wrap:wrap;gap:2px 4px;align-items:center;font-size:1.5rem;line-height:1.2;font-family:'Segoe UI Symbol','Apple Symbols','Noto Sans Symbols 2','DejaVu Sans',serif;}
+  .cp.w{color:#fffaf0;-webkit-text-stroke:1px #2a1f16;paint-order:stroke fill;}
+  .cp.k{color:#1a110a;}
+  .cap-none{font-size:.8rem;color:#7a6a54;font-family:'Source Serif 4','Noto Serif JP',serif;}
+
+  .side{display:flex;flex-direction:column;gap:16px;}
+  .panel{background:var(--paper-shadow);border:1px solid rgba(107,68,35,.3);padding:18px 20px;position:relative;}
+  .panel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--brass),transparent);}
+  .panel h2{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.22em;color:var(--brass);font-weight:400;margin-bottom:10px;}
+  .now{font-family:'JetBrains Mono',monospace;font-size:1.05rem;font-weight:600;color:var(--walnut-deep);min-height:1.9em;}
+  .caps{font-size:.82rem;color:#7a6a54;margin-top:4px;}
+  .comment{font-size:.92rem;min-height:3.6em;color:#3a3128;}
+  .comment.empty{color:#7a6a54;}
+
+  .controls{display:flex;gap:8px;}
+  .ctl{
+    flex:1;min-width:48px;font-family:inherit;font-size:1rem;font-weight:700;padding:10px 0;
+    border:1.5px solid rgba(107,68,35,.45);background:var(--paper);color:var(--walnut);cursor:pointer;
+    transition:background .2s ease,color .2s ease,border-color .2s ease;
+  }
+  .ctl:hover:not(:disabled){background:var(--walnut);color:var(--paper);border-color:var(--walnut);}
+  .ctl.main{background:var(--brass);border-color:var(--brass);color:var(--walnut-deep);}
+  .ctl.main:hover:not(:disabled){background:var(--brass-light);border-color:var(--brass-light);color:var(--walnut-deep);}
+  .ctl:disabled{opacity:.4;cursor:not-allowed;}
+  .slider-row{margin-top:14px;display:flex;align-items:center;gap:12px;font-size:.8rem;color:#7a6a54;}
+  .slider-row input[type=range]{flex:1;accent-color:var(--brass);}
+  .hint{font-size:.74rem;color:#7a6a54;margin-top:10px;}
+
+  .movelist{display:flex;flex-wrap:wrap;gap:6px;max-height:220px;overflow-y:auto;}
+  .mv{font-family:'JetBrains Mono',monospace;font-size:.74rem;padding:4px 10px;border:1px solid rgba(107,68,35,.3);background:var(--paper);color:var(--walnut-deep);cursor:pointer;}
+  .mv.w{border-left:6px solid #fffaf0;box-shadow:inset 1px 0 0 rgba(42,31,22,.35);}
+  .mv.b{border-left:6px solid var(--walnut-deep);}
+  .mv:hover{background:var(--board-light);}
+  .mv.active{background:var(--walnut);color:var(--paper);border-color:var(--walnut);}
+
+  /* ===== OTHER GAMES ===== */
+  .others{max-width:1100px;margin:0 auto;padding:0 24px 100px;}
+  .others h2{font-size:1.5rem;color:var(--walnut);margin-bottom:6px;}
+  .others p{font-size:.86rem;color:#6b5f4d;margin-bottom:16px;}
+  .others p a{color:var(--brass);font-weight:600;border-bottom:1px solid var(--brass);}
+  .other-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+  .other{display:block;position:relative;background:var(--paper-shadow);border:1px solid rgba(107,68,35,.3);padding:14px 18px;transition:transform .2s ease,box-shadow .2s ease;}
+  .other::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--brass);}
+  .other:hover{transform:translateY(-3px);box-shadow:0 10px 18px -12px rgba(42,31,22,.5);}
+  .other.now-playing{border-color:var(--brass);}
+  .other b{display:block;font-family:'Cormorant Garamond','Noto Serif JP',serif;font-size:1.05rem;}
+  .other span{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#7a6a54;}
+
+  /* ===== FOOTER (shared) ===== */
+  footer{background:var(--walnut-deep);color:var(--paper-shadow);padding:70px 24px 30px;}
+  .footer-inner{max-width:1100px;margin:0 auto;}
+  .footer-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:48px;margin-bottom:48px;}
+  .footer-col h4{font-family:'JetBrains Mono',monospace;color:var(--brass-light);font-size:.8rem;letter-spacing:.15em;text-transform:uppercase;margin-bottom:18px;}
+  .footer-col p{font-size:.9rem;margin-bottom:14px;color:var(--paper-shadow);}
+  .footer-col ul{list-style:none;}
+  .footer-col li{margin-bottom:10px;}
+  .footer-col a{font-size:.9rem;color:var(--paper-shadow);transition:color .2s;}
+  .footer-col a:hover{color:var(--brass-light);}
+  .contact-form{display:flex;flex-direction:column;gap:10px;}
+  .contact-form input,.contact-form textarea{background:var(--board-dark-deep);border:1px solid var(--walnut);color:var(--paper);padding:10px 12px;font-family:inherit;font-size:.85rem;}
+  .contact-form textarea{resize:vertical;min-height:70px;}
+  .contact-form button{background:var(--brass);color:var(--walnut-deep);border:none;padding:10px;font-family:'JetBrains Mono',monospace;font-size:.8rem;letter-spacing:.08em;cursor:pointer;transition:background .2s;}
+  .contact-form button:hover{background:var(--brass-light);}
+  .footer-bottom{border-top:1px solid rgba(232,223,200,.15);padding-top:24px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:.78rem;color:rgba(242,236,221,.5);}
+  .ai-notice{max-width:640px;line-height:1.7;}
+  @media (max-width:820px){.footer-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-wrap">
+    <a href="index.html" class="logo">
+      <span class="display">64 Squares</span>
+      <span class="notation">journal</span>
+    </a>
+    <button class="nav-toggle" aria-label="メニュー">☰</button>
+    <nav>
+      <ul id="navList">
+        <li><a href="index.html"><span class="file-rank">e4</span>ホーム</a></li>
+        <li><a href="blog.html"><span class="file-rank">d4</span>対局日誌</a></li>
+        <li><a href="gallery.html" class="current"><span class="file-rank">c4</span>ギャラリー</a></li>
+        <li><a href="about.html"><span class="file-rank">Nf3</span>About</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <section class="page-hero">
+    <p class="crumb"><a href="gallery.html">ギャラリー</a> ／ <a href="kifu.html">棋譜一覧</a></p>
+    <p class="eyebrow">kifu viewer</p>
+    <h1 id="gameTitle">棋譜ビューア</h1>
+    <div class="game-meta" id="gameMeta"></div>
+  </section>
+
+  <section class="viewer">
+    <div class="viewer-grid">
+
+      <div class="board-col">
+        <div class="cap-bar" id="capTop"></div>
+        <div class="board-frame" id="boardWrap" aria-live="polite"></div>
+        <div class="cap-bar" id="capBottom"></div>
+      </div>
+
+      <div class="side">
+        <div class="panel">
+          <h2>NOW</h2>
+          <div class="now" id="nowText"></div>
+          <div class="caps" id="capsText"></div>
+        </div>
+
+        <div class="panel">
+          <h2>COMMENT</h2>
+          <p class="comment" id="commentText"></p>
+        </div>
+
+        <div class="panel">
+          <h2>CONTROL</h2>
+          <div class="controls">
+            <button class="ctl" id="btnFirst" aria-label="最初へ">⏮</button>
+            <button class="ctl" id="btnPrev" aria-label="一手戻る">◀</button>
+            <button class="ctl main" id="btnNext" aria-label="一手進む">▶</button>
+            <button class="ctl" id="btnLast" aria-label="最後へ">⏭</button>
+          </div>
+          <div class="slider-row">
+            <span>0</span>
+            <input type="range" id="slider" min="0" value="0" aria-label="手数">
+            <span id="sliderMax"></span>
+          </div>
+          <p class="hint">キーボードの ← → でも進められます（Home / End で最初・最後）。</p>
+        </div>
+
+        <div class="panel">
+          <h2>MOVES</h2>
+          <div class="movelist" id="moveList"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="others">
+    <h2>ほかの棋譜</h2>
+    <p><a href="kifu.html">棋譜一覧ページ</a>からもまとめて見られます。</p>
+    <div class="other-list" id="otherList"></div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <h4>64 Squares Journal</h4>
+        <p>チェスの勉強記録と気づきを綴る個人サイトです。焦らず一手ずつ、盤上の理解を深めていきます。</p>
+        <p style="margin-top:20px;">Part of <strong>Azalea Creative Room</strong></p>
+      </div>
+      <div class="footer-col">
+        <h4>Links</h4>
+        <ul>
+          <li><a href="https://azaleacreativeroom888.github.io/" target="_blank" rel="noopener">Azalea Creative Room</a></li>
+          <li><a href="https://kakuyomu.jp/users/azalea_azalea72" target="_blank" rel="noopener">Kakuyomu（小説）</a></li>
+          <li><a href="https://www.pixiv.net/users/105728284" target="_blank" rel="noopener">Pixiv（イラスト）</a></li>
+          <li><a href="https://www.youtube.com/@LilyPopins0512" target="_blank" rel="noopener">YouTube - リリポピ</a></li>
+          <li><a href="https://bsky.app/profile/azaleaazalea88.bsky.social" target="_blank" rel="noopener">Bluesky</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <form class="contact-form" action="https://formspree.io/f/maqvpvoz" method="POST">
+          <input type="text" name="name" placeholder="お名前" required>
+          <input type="email" name="email" placeholder="メールアドレス" required>
+          <textarea name="message" placeholder="メッセージ" required></textarea>
+          <button type="submit">送信する</button>
+        </form>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; 2026 64 Squares Journal — Azalea Creative Room</span>
+      <span class="ai-notice">当サイトの文章・画像等の無断でのAI学習・機械学習データセットへの利用を禁止します。 / No AI training on this site's content is permitted.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* =========================================================
+   棋譜データ
+   - moves は「動かす駒の元のマス + 移動先のマス」を4文字で並べる（座標表記）
+       e2e4 = e2の駒をe4へ     g1f3 = g1のナイトをf3へ
+   - 駒を取る手も同じ書き方（e5d4 = e5の駒がd4の駒を取る）
+   - キャスリングはキングの動きだけ書く（白のO-O = e1g1 / O-O-O = e1c1、
+     黒のO-O = e8g8 / O-O-O = e8c8）。ルークは自動で動く
+   - アンパッサンも、取るポーンの動きだけ書けばOK
+   - プロモーションは末尾に駒の英字（q r b n）  例: e7e8q
+   - チェックメイトの手は末尾に # を付ける  例: h5f7#
+     （チェックの + は自動で付く）
+   - 白（先手）から交互に指した扱い。通常の初期配置から始まる
+   - comments は { 手数: "コメント" } で任意に追加（手数は半手ごとに数える）
+   - 1局1ファイル方式：新しい棋譜を増やすときは、このファイルをまるごと
+     コピーして kifu3.html のような名前で保存し、GAME の中身を書き換える。
+     そのあと OTHERS にも新しい棋譜を追記する（全ての kifu*.html で揃えること）。
+     kifu.html の棋譜一覧にもカードを1つ足す。
+   ========================================================= */
+const GAME = {
+  title: "サンプル：イタリアンゲーム",
+  date: "2026.11.06",
+  white: "自分",
+  black: "相手",
+  result: "（サンプルなので未記入）",
+  moves: "e2e4 e7e5 g1f3 b8c6 f1c4 f8c5 c2c3 g8f6 d2d4 e5d4 c3d4 c5b4 b1c3 f6e4 e1g1 e4c3 b2c3 b4c3".split(" "),
+  comments: {
+    1: "白の初手はe4。中央を広く取る定番の一手。",
+    2: "黒もe5で応じる。左右対称の「オープンゲーム」の形。",
+    3: "Nf3でe5のポーンを攻めつつ、ナイトを展開。",
+    5: "Bc4でf7のポーンを狙う。イタリアンゲームの名前の由来になった形。",
+    7: "c3でd4を準備。中央に大きなポーン陣を築く狙い。",
+    10: "exd4。黒が中央のポーンを取る。",
+    12: "Bb4+。ビショップでチェック。白は応手を迫られる。",
+    15: "O-O。キャスリングでキングを安全な場所へ。",
+    18: "サンプルはここまで。実際の棋譜に差し替えてください。"
+  }
+};
+
+/* 「ほかの棋譜」欄に出す一覧。棋譜を増やしたら、このファイルも含めて
+   全部の kifu*.html の OTHERS を同じ内容に揃えてね。
+   href には自分自身も入れてOK（自動でハイライトされる）。 */
+const OTHERS = [
+  { href: "kifu1.html", title: "サンプル：イタリアンゲーム", date: "2026.11.06", moves: 18 },
+  { href: "kifu2.html", title: "サンプル：スカラーズメイト", date: "2026.11.06", moves: 7 }
+];
+
+/* ---------------- 以下、ビューアの処理 ---------------- */
+const game = GAME;
+const $ = id => document.getElementById(id);
+
+const GLY = {K:"♚", Q:"♛", R:"♜", B:"♝", N:"♞", P:"♟"};
+const ORDER = ["Q", "R", "B", "N", "P"];
+const SYM_FONT = "'Segoe UI Symbol','Apple Symbols','Noto Sans Symbols 2','DejaVu Sans',serif";
+const WHO = ["白", "黒"];
+
+let step = 0;
+
+/* 盤は board[row][col]。row 0 = 8段目、col 0 = aファイル。c: 0=白 / 1=黒 */
+function initialBoard(){
+  const b = Array.from({length:8}, () => Array(8).fill(null));
+  const back = ["R","N","B","Q","K","B","N","R"];
+  for (let f = 0; f < 8; f++){
+    b[0][f] = {t:back[f], c:1};
+    b[1][f] = {t:"P", c:1};
+    b[6][f] = {t:"P", c:0};
+    b[7][f] = {t:back[f], c:0};
+  }
+  return b;
+}
+
+function sq(f, r){ return String.fromCharCode(97 + f) + (8 - r); }
+
+function parseTok(tok){
+  const m = /^([a-h])([1-8])([a-h])([1-8])([qrbn]?)(#?)$/.exec(tok || "");
+  if (!m) return null;
+  return {ff:m[1].charCodeAt(0) - 97, fr:8 - (+m[2]), tf:m[3].charCodeAt(0) - 97, tr:8 - (+m[4]), promo:m[5] || null, mate:m[6] === "#"};
+}
+
+/* マス (r,f) を、色 by の駒が攻撃しているか */
+function attacked(b, r, f, by){
+  const at = (rr, cc) => (rr >= 0 && rr < 8 && cc >= 0 && cc < 8) ? b[rr][cc] : null;
+  const pr = by === 0 ? r + 1 : r - 1;
+  for (const df of [-1, 1]){ const p = at(pr, f + df); if (p && p.c === by && p.t === "P") return true; }
+  for (const [dr, df] of [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]]){
+    const p = at(r + dr, f + df); if (p && p.c === by && p.t === "N") return true;
+  }
+  for (let dr = -1; dr <= 1; dr++) for (let df = -1; df <= 1; df++){
+    if (!dr && !df) continue;
+    const p = at(r + dr, f + df); if (p && p.c === by && p.t === "K") return true;
+  }
+  const rays = [[1,0,"R"],[-1,0,"R"],[0,1,"R"],[0,-1,"R"],[1,1,"B"],[1,-1,"B"],[-1,1,"B"],[-1,-1,"B"]];
+  for (const [dr, df, kind] of rays){
+    let rr = r + dr, cc = f + df;
+    while (rr >= 0 && rr < 8 && cc >= 0 && cc < 8){
+      const p = b[rr][cc];
+      if (p){ if (p.c === by && (p.t === kind || p.t === "Q")) return true; break; }
+      rr += dr; cc += df;
+    }
+  }
+  return false;
+}
+
+function inCheck(b, c){
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++){
+    const p = b[r][f];
+    if (p && p.t === "K" && p.c === c) return attacked(b, r, f, 1 - c);
+  }
+  return false;
+}
+
+function play(upto){
+  const b = initialBoard();
+  const caps = [[], []];   // caps[c] = 色cが取った駒の種類
+  const labels = [];
+  let last = null;
+  for (let i = 0; i < upto; i++){
+    const c = i % 2;
+    const m = parseTok(game.moves[i]);
+    const p = m && b[m.fr][m.ff];
+    if (!m || !p){ labels.push("？"); last = null; continue; }
+    let target = b[m.tr][m.tf];
+    let castle = null, ep = false;
+    if (p.t === "K" && Math.abs(m.tf - m.ff) === 2){
+      const kingside = m.tf > m.ff;
+      castle = kingside ? "O-O" : "O-O-O";
+      const rf = kingside ? 7 : 0, rt = kingside ? 5 : 3;
+      b[m.fr][rt] = b[m.fr][rf]; b[m.fr][rf] = null;
+    }
+    if (p.t === "P" && m.tf !== m.ff && !target){
+      ep = true; target = b[m.fr][m.tf]; b[m.fr][m.tf] = null;
+    }
+    if (target) caps[c].push(target.t);
+    const promo = m.promo ? m.promo.toUpperCase() : null;
+    b[m.tr][m.tf] = promo ? {t:promo, c} : p;
+    b[m.fr][m.ff] = null;
+    const mark = m.mate ? "#" : (inCheck(b, 1 - c) ? "+" : "");
+    const body = castle ||
+      ((p.t === "P" ? "" : p.t) + sq(m.ff, m.fr) + (target ? "x" : "-") + sq(m.tf, m.tr) + (promo ? "=" + promo : "") + (ep ? " e.p." : ""));
+    labels.push(body + mark);
+    last = {fr:m.fr, ff:m.ff, tr:m.tr, tf:m.tf};
+  }
+  return {board:b, caps, labels, last};
+}
+
+const LABELS = play(game.moves.length).labels;
+
+function pieceSVG(pc, cx, cy, cell){
+  const w = pc.c === 0;
+  return `<text x="${cx}" y="${(cy + cell*0.27).toFixed(1)}" font-size="${(cell*0.8).toFixed(1)}" text-anchor="middle" font-family="${SYM_FONT}" ` +
+    `fill="${w ? "#fffaf0" : "#1a110a"}" stroke="${w ? "#2a1f16" : "#e8dfc8"}" stroke-width="${w ? 1.5 : 0.8}" stroke-linejoin="round" paint-order="stroke">${GLY[pc.t]}\uFE0E</text>`;
+}
+
+function capHTML(c, list){
+  const cls = c === 0 ? "k" : "w";  // 白が取るのは黒駒（暗い色）、黒が取るのは白駒
+  const items = ORDER.map(t => list.filter(x => x === t).map(() => `<span class="cp ${cls}">${GLY[t]}\uFE0E</span>`).join("")).join("");
+  return `<span class="cap-label">${WHO[c]}が取った駒</span><div class="cap-pieces">${items || '<span class="cap-none">なし</span>'}</div>`;
+}
+
+function draw(){
+  const cell = 56, m = 30, size = m*2 + cell*8;
+  const pos = play(step);
+  let s = `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${step}手目の局面">`;
+  s += `<rect width="${size}" height="${size}" fill="#e2d9c0"/>`;
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++){
+    s += `<rect x="${m + f*cell}" y="${m + r*cell}" width="${cell}" height="${cell}" fill="${(r + f) % 2 === 0 ? "#e8dfc8" : "#3b5d50"}"/>`;
+  }
+  if (pos.last){
+    [[pos.last.fr, pos.last.ff], [pos.last.tr, pos.last.tf]].forEach(([r, f]) => {
+      s += `<rect x="${m + f*cell}" y="${m + r*cell}" width="${cell}" height="${cell}" fill="#d9b06c" fill-opacity="0.55"/>`;
+    });
+  }
+  s += `<rect x="${m}" y="${m}" width="${cell*8}" height="${cell*8}" fill="none" stroke="#2a1f16" stroke-width="2"/>`;
+  s += `<g font-size="14" fill="#6b4423" text-anchor="middle" font-family="JetBrains Mono, monospace">`;
+  for (let i = 0; i < 8; i++){
+    s += `<text x="${m + i*cell + cell/2}" y="${m + cell*8 + 20}">${String.fromCharCode(97 + i)}</text>`;
+    s += `<text x="${m - 14}" y="${m + i*cell + cell/2 + 5}">${8 - i}</text>`;
+  }
+  s += `</g>`;
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++){
+    const pc = pos.board[r][f];
+    if (pc) s += pieceSVG(pc, m + f*cell + cell/2, m + r*cell + cell/2, cell);
+  }
+  s += `</svg>`;
+  $('boardWrap').innerHTML = s;
+
+  $('capTop').innerHTML = capHTML(1, pos.caps[1]);
+  $('capBottom').innerHTML = capHTML(0, pos.caps[0]);
+
+  if (step === 0){
+    $('nowText').textContent = "対局開始前";
+    $('capsText').textContent = "次の手番：白";
+  } else {
+    $('nowText').textContent = step + "手目　" + WHO[(step - 1) % 2] + "　" + LABELS[step - 1];
+    $('capsText').textContent = step < game.moves.length
+      ? "次の手番：" + WHO[step % 2]
+      : "棋譜の最後です";
+  }
+  const cm = game.comments && game.comments[step];
+  $('commentText').textContent = cm || (step === 0 ? "▶ を押すと一手ずつ進みます。" : "この手へのコメントはありません。");
+  $('commentText').className = "comment" + (cm ? "" : " empty");
+
+  $('slider').value = step;
+  $('btnFirst').disabled = $('btnPrev').disabled = step === 0;
+  $('btnNext').disabled = $('btnLast').disabled = step === game.moves.length;
+  document.querySelectorAll('.mv').forEach(el => el.classList.toggle('active', +el.dataset.n === step));
+}
+
+function go(n){ step = Math.max(0, Math.min(game.moves.length, n)); draw(); }
+
+/* init */
+document.title = game.title + " | 64 Squares Journal";
+$('gameTitle').textContent = game.title;
+$('gameMeta').innerHTML =
+  `<span>日付：<b>${game.date}</b></span><span>白：<b>${game.white}</b></span><span>黒：<b>${game.black}</b></span><span>全${game.moves.length}手</span><span>結果：<b>${game.result}</b></span>`;
+$('slider').max = game.moves.length;
+$('sliderMax').textContent = game.moves.length;
+
+game.moves.forEach((tok, i) => {
+  const b = document.createElement('button');
+  b.className = 'mv ' + (i % 2 === 0 ? 'w' : 'b');
+  b.dataset.n = i + 1;
+  b.textContent = (i + 1) + " " + LABELS[i];
+  b.addEventListener('click', () => go(i + 1));
+  $('moveList').appendChild(b);
+});
+
+const here = location.pathname.split('/').pop();
+OTHERS.forEach(g => {
+  const a = document.createElement('a');
+  a.className = 'other' + (g.href === here ? ' now-playing' : '');
+  a.href = g.href;
+  a.innerHTML = `<b>${g.title}</b><span>${g.date}・全${g.moves}手</span>`;
+  $('otherList').appendChild(a);
+});
+
+$('btnFirst').addEventListener('click', () => go(0));
+$('btnPrev').addEventListener('click', () => go(step - 1));
+$('btnNext').addEventListener('click', () => go(step + 1));
+$('btnLast').addEventListener('click', () => go(game.moves.length));
+$('slider').addEventListener('input', e => go(+e.target.value));
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' && e.target.type === 'range') return;
+  if (e.key === 'ArrowRight') go(step + 1);
+  else if (e.key === 'ArrowLeft') go(step - 1);
+  else if (e.key === 'Home') go(0);
+  else if (e.key === 'End') go(game.moves.length);
+});
+
+const navToggle = document.querySelector('.nav-toggle');
+navToggle.addEventListener('click', () => document.getElementById('navList').classList.toggle('open'));
+
+draw();
+</script>
+
+</body>
+</html>
