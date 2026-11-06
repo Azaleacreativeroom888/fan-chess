@@ -98,6 +98,27 @@
   .page-hero h1{font-size:clamp(2rem,5vw,3rem);}
   .page-hero p{color:var(--paper-shadow);margin-top:14px;font-size:1rem;}
 
+  /* ===== KIFU LINK BOX ===== */
+  .kifu-box{max-width:1100px;margin:40px auto 0;padding:0 24px;}
+  .kifu-link{
+    display:flex;align-items:center;gap:20px;
+    background:var(--board-dark-deep);color:var(--paper);
+    border:1px solid var(--brass);padding:22px 26px;position:relative;
+    transition:transform .25s ease, box-shadow .25s ease;
+  }
+  .kifu-link::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--brass),transparent);}
+  .kifu-link:hover{transform:translateY(-3px);box-shadow:0 14px 28px -18px rgba(42,31,22,.7);}
+  .kifu-icon{
+    width:52px;height:52px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    font-size:1.8rem;color:var(--brass-light);
+    background:rgba(184,134,62,.12);border:1px solid rgba(184,134,62,.4);
+  }
+  .kifu-text{flex:1;min-width:0;}
+  .kifu-name{display:block;font-family:'Cormorant Garamond','Noto Serif JP',serif;font-size:1.35rem;font-weight:700;}
+  .kifu-desc{display:block;font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--paper-shadow);margin-top:2px;}
+  .kifu-arrow{color:var(--brass-light);font-size:1.5rem;flex-shrink:0;transition:transform .25s ease;}
+  .kifu-link:hover .kifu-arrow{transform:translateX(4px);}
+
   /* ===== FILTER ===== */
   .filter-bar{
     max-width:1100px;
@@ -282,6 +303,17 @@
   <p>局面図・棋譜メモ・終盤研究など、勉強の過程で残した記録をまとめています。</p>
 </section>
 
+<div class="kifu-box">
+  <a class="kifu-link" href="kifu.html">
+    <div class="kifu-icon" aria-hidden="true">♞</div>
+    <div class="kifu-text">
+      <span class="kifu-name">チェスの棋譜一覧</span>
+      <span class="kifu-desc">対局を一手ずつ盤上で再生できます（kifu1・kifu2…）</span>
+    </div>
+    <span class="kifu-arrow">›</span>
+  </a>
+</div>
+
 <div class="filter-bar">
   <button class="filter-btn active" data-filter="all">すべて</button>
   <button class="filter-btn" data-filter="position">局面図</button>
@@ -351,10 +383,10 @@
         <h4>Links</h4>
         <ul>
           <li><a href="https://azaleacreativeroom888.github.io/" target="_blank" rel="noopener">Azalea Creative Room</a></li>
-          <li><a href="https://kakuyomu.jp/" target="_blank" rel="noopener">Kakuyomu（小説）</a></li>
-          <li><a href="https://www.pixiv.net/" target="_blank" rel="noopener">Pixiv（イラスト）</a></li>
-          <li><a href="https://www.youtube.com/" target="_blank" rel="noopener">YouTube - リリポピ</a></li>
-          <li><a href="https://bsky.app/" target="_blank" rel="noopener">Bluesky</a></li>
+          <li><a href="https://kakuyomu.jp/users/azalea_azalea72" target="_blank" rel="noopener">Kakuyomu（小説）</a></li>
+          <li><a href="https://www.pixiv.net/users/105728284" target="_blank" rel="noopener">Pixiv（イラスト）</a></li>
+          <li><a href="https://www.youtube.com/@LilyPopins0512" target="_blank" rel="noopener">YouTube - リリポピ</a></li>
+          <li><a href="https://bsky.app/profile/azaleaazalea88.bsky.social" target="_blank" rel="noopener">Bluesky</a></li>
         </ul>
       </div>
       <div class="footer-col">
